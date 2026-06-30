@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code Generator — TOPTools</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#16191c;
+    --paper:#f6f4ef;
+    --card:#ffffff;
+    --line:#e3ddd0;
+    --accent:#1c5d4a;
+    --accent-soft:#e3efe9;
+    --muted:#6b6f73;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+
+  header{border-bottom:1px solid var(--line);padding:20px 0;}
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    font-family:'Fraunces',serif;font-weight:700;font-size:1.3rem;
+    text-decoration:none;color:var(--ink);width:fit-content;
+  }
+  .brand .mark{
+    width:30px;height:30px;background:var(--accent);border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-size:0.85rem;font-weight:700;
+  }
+
+  .backlink{
+    display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;
+    font-size:0.88rem;color:var(--muted);text-decoration:none;font-weight:500;
+  }
+  .backlink:hover{color:var(--accent);}
+
+  .tool-head{padding:18px 0 36px;}
+  .tool-head h1{
+    font-family:'Fraunces',serif;font-weight:600;
+    font-size:clamp(1.7rem,4vw,2.3rem);margin:0 0 8px;
+  }
+  .tool-head p{color:var(--muted);margin:0;font-size:1rem;}
+
+  .layout{display:grid;grid-template-columns:1fr 300px;gap:32px;align-items:start;padding-bottom:80px;}
+  @media (max-width:680px){.layout{grid-template-columns:1fr;}}
+
+  label{
+    display:block;font-size:0.8rem;font-weight:600;
+    color:var(--muted);margin-bottom:8px;
+  }
+  textarea{
+    width:100%;font-family:'Inter',sans-serif;font-size:1rem;
+    padding:14px;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);color:var(--ink);resize:vertical;
+  }
+  textarea:focus{outline:none;border-color:var(--accent);}
+
+  .field{margin-bottom:18px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+  select{
+    width:100%;font-family:'Inter',sans-serif;font-size:0.95rem;
+    padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);color:var(--ink);
+  }
+  select:focus{outline:none;border-color:var(--accent);}
+
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:0.96rem;
+    padding:13px 24px;border-radius:10px;border:none;
+    background:var(--accent);color:white;cursor:pointer;width:100%;
+    transition:background .15s ease;
+  }
+  .btn:hover{background:#154838;}
+  .btn.ghost{
+    background:transparent;border:1px solid var(--line);color:var(--ink);
+    margin-top:10px;
+  }
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .preview{
+    border:1px solid var(--line);border-radius:14px;background:var(--card);
+    padding:26px;display:flex;flex-direction:column;align-items:center;gap:16px;
+    position:sticky;top:24px;
+  }
+  #qrcode{
+    width:200px;height:200px;display:flex;align-items:center;justify-content:center;
+    background:white;border-radius:8px;
+  }
+  #qrcode img{display:block;border-radius:4px;}
+  .qr-empty{
+    font-size:0.85rem;color:var(--muted);text-align:center;line-height:1.4;
+  }
+
+  footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:0.85rem;margin-top:20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="../index.html" class="brand"><span class="mark">T</span> TOPTools</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <a href="../index.html" class="backlink">← All tools</a>
+
+  <div class="tool-head">
+    <h1>QR Code Generator</h1>
+    <p>Type a link or any text below, then download your QR code as an image.</p>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="field">
+        <label for="qrText">Link or text</label>
+        <textarea id="qrText" rows="3" placeholder="https://example.com"></textarea>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label for="qrSize">Size</label>
+          <select id="qrSize">
+            <option value="160">Small — 160px</option>
+            <option value="220" selected>Medium — 220px</option>
+            <option value="320">Large — 320px</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="qrColor">Color</label>
+          <select id="qrColor">
+            <option value="#16191c" selected>Black</option>
+            <option value="#1c5d4a">Forest Green</option>
+            <option value="#b3491f">Rust</option>
+            <option value="#1d4ed8">Blue</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn" id="genQr">Generate QR code</button>
+    </div>
+
+    <div class="preview">
+      <div id="qrcode"><span class="qr-empty">Your QR code will<br>appear here</span></div>
+      <button class="btn ghost" id="downloadQr" disabled style="width:100%;">Download PNG</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">TOPTools — built for everyday work, not accounts and ads.</div>
+</footer>
+
+<script>
+  const qrTextEl = document.getElementById('qrText');
+  const qrSizeEl = document.getElementById('qrSize');
+  const qrColorEl = document.getElementById('qrColor');
+  const qrContainer = document.getElementById('qrcode');
+  const downloadBtn = document.getElementById('downloadQr');
+
+  document.getElementById('genQr').addEventListener('click', ()=>{
+    const text = qrTextEl.value.trim();
+    if(!text){
+      qrTextEl.style.borderColor = '#b3491f';
+      qrTextEl.focus();
+      return;
+    }
+    qrTextEl.style.borderColor = '';
+    qrContainer.innerHTML = '';
+    const size = parseInt(qrSizeEl.value,10);
+    new QRCode(qrContainer, {
+      text: text,
+      width: size,
+      height: size,
+      colorDark: qrColorEl.value,
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    setTimeout(()=>{ downloadBtn.disabled = false; }, 150);
+  });
+
+  downloadBtn.addEventListener('click', ()=>{
+    const img = qrContainer.querySelector('img');
+    const canvas = qrContainer.querySelector('canvas');
+    const src = img ? img.src : (canvas ? canvas.toDataURL('image/png') : null);
+    if(!src) return;
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = 'qrcode.png';
+    a.click();
+  });
+
+  qrTextEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){
+      document.getElementById('genQr').click();
+    }
+  });
+</script>
+
+</body>
+</html>
