@@ -8,7 +8,7 @@
   :root{--ink:#16191c;--paper:#f6f4ef;--card:#ffffff;--line:#e3ddd0;--accent:#1c5d4a;--accent-soft:#e3efe9;--muted:#6b6f73;}
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;}
   .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
   header{border-bottom:1px solid var(--line);padding:20px 0;}
   .brand{display:flex;align-items:center;gap:10px;font-family:'Fraunces',serif;font-weight:700;font-size:1.3rem;text-decoration:none;color:var(--ink);}
@@ -18,6 +18,13 @@
   .tool-head{padding:18px 0 32px;}
   .tool-head h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(1.7rem,4vw,2.3rem);margin:0 0 8px;}
   .tool-head p{color:var(--muted);margin:0;font-size:1rem;}
+  .token-box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:24px;}
+  .token-box label{font-size:0.82rem;font-weight:600;color:var(--muted);display:block;margin-bottom:8px;}
+  .token-row{display:flex;gap:10px;}
+  .token-row input{flex:1;font-family:'Inter',sans-serif;font-size:0.95rem;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);}
+  .token-row input:focus{outline:none;border-color:var(--accent);}
+  .token-row button{font-family:'Inter',sans-serif;font-weight:600;font-size:0.88rem;padding:10px 18px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer;}
+  .token-note{font-size:0.78rem;color:var(--muted);margin-top:8px;}
   .dropzone{border:1.5px dashed var(--line);border-radius:14px;padding:56px 24px;text-align:center;cursor:pointer;background:var(--card);transition:border-color .15s,background .15s;}
   .dropzone:hover{border-color:var(--accent);background:var(--accent-soft);}
   .dz-title{font-weight:600;font-size:1.05rem;margin-bottom:6px;}
@@ -40,6 +47,7 @@
   .btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
   .btn:disabled{opacity:0.4;cursor:not-allowed;}
   .note{font-size:0.82rem;color:var(--muted);margin-top:18px;line-height:1.5;}
+  .err{background:#fbe9e2;color:#b3491f;padding:14px;border-radius:10px;font-size:0.88rem;margin-bottom:16px;}
   footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:0.85rem;margin-top:50px;}
 </style>
 </head>
@@ -55,7 +63,16 @@
   <a href="../index.html" class="backlink">← All tools</a>
   <div class="tool-head">
     <h1>Background Remover</h1>
-    <p>Upload a photo and get it back with a transparent background. Processing happens on your device — nothing is uploaded anywhere.</p>
+    <p>Upload a photo and get it back with a transparent background. Free, private — nothing is uploaded to our servers.</p>
+  </div>
+
+  <div class="token-box">
+    <label>Your Hugging Face API Token (stored only in your browser)</label>
+    <div class="token-row">
+      <input type="password" id="tokenInput" placeholder="hf_xxxxxxxxxxxxxxxx">
+      <button onclick="saveToken()">Save</button>
+    </div>
+    <div class="token-note">Get a free token at huggingface.co → Settings → Access Tokens. It stays in your browser only.</div>
   </div>
 
   <div class="dropzone" id="dropzone">
@@ -65,9 +82,10 @@
   <input type="file" id="fileInput" accept="image/*" style="display:none;">
 
   <div class="work-area" id="workArea">
+    <div id="errBox" class="err" style="display:none;"></div>
     <div class="status-row" id="statusRow" style="display:none;">
       <div class="spinner"></div>
-      <span id="statusText">Loading…</span>
+      <span id="statusText">Processing…</span>
     </div>
     <div class="compare">
       <div class="imgbox">
@@ -85,7 +103,7 @@
       <button class="btn" id="downloadBtn" disabled>Download PNG</button>
       <button class="btn ghost" id="newImageBtn">Try another photo</button>
     </div>
-    <div class="note">First use downloads a small AI model (may take 10–20 seconds). Best results with a clear subject — person, product, or animal.</div>
+    <div class="note">Processing may take 10–30 seconds depending on image size and server load.</div>
   </div>
 </div>
 
@@ -93,7 +111,6 @@
   <div class="wrap">TOPTools — built for everyday work, not accounts and ads.</div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.14.0/ort.min.js"></script>
 <script>
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
@@ -104,83 +121,96 @@
   const resultBox = document.getElementById('resultBox');
   const downloadBtn = document.getElementById('downloadBtn');
   const newImageBtn = document.getElementById('newImageBtn');
+  const errBox = document.getElementById('errBox');
+  const tokenInput = document.getElementById('tokenInput');
   let resultUrl = null;
 
+  // Load saved token
+  if(localStorage.getItem('hf_token')){
+    tokenInput.value = localStorage.getItem('hf_token');
+  }
+
+  function saveToken(){
+    const t = tokenInput.value.trim();
+    if(!t){ alert('Token daalo pehle!'); return; }
+    localStorage.setItem('hf_token', t);
+    alert('Token save ho gaya! ✅');
+  }
+
   dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('dragover', e => { e.preventDefault(); });
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor='var(--accent)'; });
+  dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor=''; });
   dropzone.addEventListener('drop', e => {
     e.preventDefault();
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    dropzone.style.borderColor='';
+    if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
   });
   fileInput.addEventListener('change', e => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
+    if(e.target.files[0]) handleFile(e.target.files[0]);
   });
 
   newImageBtn.addEventListener('click', () => {
     workArea.classList.remove('active');
-    fileInput.value = '';
-    resultBox.innerHTML = '<span style="font-size:0.85rem;color:var(--muted);">Result will appear here</span>';
-    downloadBtn.disabled = true;
-    if (resultUrl) { URL.revokeObjectURL(resultUrl); resultUrl = null; }
+    fileInput.value='';
+    resultBox.innerHTML='<span style="font-size:0.85rem;color:var(--muted);">Result will appear here</span>';
+    downloadBtn.disabled=true;
+    errBox.style.display='none';
+    if(resultUrl){ URL.revokeObjectURL(resultUrl); resultUrl=null; }
   });
 
-  async function handleFile(file) {
-    if (!file.type.startsWith('image/')) return;
+  async function handleFile(file){
+    if(!file.type.startsWith('image/')) return;
+
+    const token = localStorage.getItem('hf_token') || tokenInput.value.trim();
+    if(!token){
+      alert('Pehle apna Hugging Face token daalo aur Save karo!');
+      return;
+    }
+
     workArea.classList.add('active');
     originalImg.src = URL.createObjectURL(file);
-    resultBox.innerHTML = '<span style="font-size:0.85rem;color:var(--muted);">Working on it…</span>';
-    downloadBtn.disabled = true;
-    statusRow.style.display = 'flex';
-    statusText.textContent = 'Loading AI model…';
+    resultBox.innerHTML='<span style="font-size:0.85rem;color:var(--muted);">Working on it…</span>';
+    downloadBtn.disabled=true;
+    errBox.style.display='none';
+    statusRow.style.display='flex';
+    statusText.textContent='Sending to AI…';
 
-    try {
-      // Use remove.bg API alternative - client side with canvas
-      statusText.textContent = 'Processing image…';
-      
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await new Promise(r => img.onload = r);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      // Use fetch to remove.bg free tier
+    try{
       const formData = new FormData();
-      formData.append('image_file', file);
-      formData.append('size', 'auto');
+      formData.append('data', file);
 
-      const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-        method: 'POST',
-        headers: { 'X-Api-Key': 'YOUR_API_KEY' },
-        body: formData
-      });
+      const response = await fetch(
+        'https://api-inference.huggingface.co/models/briaai/RMBG-1.4',
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: file
+        }
+      );
 
-      if (!response.ok) throw new Error('API error');
+      if(!response.ok){
+        const err = await response.text();
+        throw new Error(err);
+      }
+
       const blob = await response.blob();
       resultUrl = URL.createObjectURL(blob);
-      const resultImg = document.createElement('img');
-      resultImg.src = resultUrl;
-      resultBox.innerHTML = '';
-      resultBox.appendChild(resultImg);
-      downloadBtn.disabled = false;
-      statusRow.style.display = 'none';
-    } catch(err) {
-      // Fallback: redirect to remove.bg
-      statusRow.style.display = 'none';
-      resultBox.innerHTML = `
-        <div style="text-align:center;padding:20px;">
-          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:16px;">For best results, use our recommended free tool:</p>
-          <a href="https://www.remove.bg" target="_blank" style="background:var(--accent);color:white;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.95rem;">Open Remove.bg →</a>
-        </div>`;
-      workArea.classList.add('active');
+      resultBox.innerHTML='';
+      const img = document.createElement('img');
+      img.src = resultUrl;
+      resultBox.appendChild(img);
+      downloadBtn.disabled=false;
+      statusRow.style.display='none';
+
+    } catch(err){
+      statusRow.style.display='none';
+      errBox.style.display='block';
+      errBox.textContent='Error: ' + (err.message || 'Kuch gadbad hui. Dobara try karo ya token check karo.');
     }
   }
 
   downloadBtn.addEventListener('click', () => {
-    if (!resultUrl) return;
+    if(!resultUrl) return;
     const a = document.createElement('a');
     a.href = resultUrl;
     a.download = 'background-removed.png';
